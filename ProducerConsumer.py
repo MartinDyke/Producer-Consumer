@@ -50,11 +50,12 @@ class Buffer:
 
 
 class Consumer:
-    def __init__(self, buff, companies):
+    def __init__(self, buff, companies,file):
         self.buffer = buff  # initializes a buffer attribute buff
         self.values = {i: [0,100,0,0] for i in
                        companies}  # [counter, min, average,max]
         self.companies = companies
+        self.printer = Printer(file)
     def reset(self):
         self.values= {i: [0,100,0,0] for i in self.companies}
 
@@ -70,24 +71,30 @@ class Consumer:
                     if a.value < self.values[a.company][1]: self.values[a.company][1]=a.value
                     if a.value > self.values[a.company][3]: self.values[a.company][3]=a.value
                     quoteNo += 1
-            print('Day ' + str(Day) + ":\n\n")
+            self.printer.printToFile('Day ' + str(Day) + ":\n\n")
             for key in self.values:
                 if self.values[key][0] !=0:
-                    print('The highest value for ' + key + ' is ' + str(self.values[key][3]))
-                    print('The lowest value for ' + key + ' is ' + str(self.values[key][1]))
-                    print('The average value for ' + key + ' is ' + str("{0:.1f}".format(self.values[key][2]/self.values[key][0])) + '\n\n\n')
+                    self.printer.printToFile('The highest value for ' + key + ' is ' + str(self.values[key][3]) + "\n" +
+                                             'The lowest value for ' + key + ' is ' + str(self.values[key][1]) + "\n" +
+                                             'The average value for ' + key + ' is ' + str("{0:.1f}".format(self.values[key][2]/self.values[key][0])) + '\n\n\n' )
             Day+=1
             self.reset()
+        
       
+class Printer:
+    def __init__(self,file):
+        self.file = file
     
-
+    def printToFile(self,text):
+        open(self.file,"a").write(text)
+    
 
 if __name__ == "__main__":
     T1 = timeit.default_timer()
     b = Buffer()
     comp = ['AAPL', 'AMZN', 'GOOG', 'FB', 'CSCO', 'CMCSA', 'AMGN', 'ADBE', 'GILD', 'COST']
     p = Producer(b, comp)
-    c = Consumer(b, comp)
+    c = Consumer(b, comp,"Output.txt")
     t1 = Thread(target=p.run)
     t2 = Thread(target=c.run)
     t1.start()
