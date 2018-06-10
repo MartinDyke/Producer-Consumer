@@ -11,18 +11,23 @@ from threading import Thread
 #   quote items eg: [random.randint(1, 100), self.companies[random.randint(0, len(self.companies) - 1)]]. With a defined
 #   quote class you are defining and enforcing what it means to be a quote to everybody else.
 
+class Quote:
+    def __init__(self, companies):
+        self.company = companies[random.randint(0,len(companies)-1)]
+        self.value = random.randint(0,5000)/10.0
+        
+
 class Producer:
     def __init__(self, buff, companies):
         self.buffer = buff
         self.companies = companies
 
     def getRandomQuote(self):
-        return [self.companies[random.randint(0, len(self.companies) - 1)], random.randint(1, 100)]
+        return Quote(self.companies)
 
     def run(self):
-        for i in range(1000):
-            a = self.getRandomQuote()
-            self.buffer.add(a[0], a[1])
+        for i in range(100000):
+            self.buffer.add(self.getRandomQuote())
 
 
 class Buffer:
@@ -32,8 +37,8 @@ class Buffer:
     # Why do your add and remove methods guarantee that the quotes will be consumed in the same order that they were
     # produced? The impl is fine (for now) but why does it work? What are append and remove doing underneath?
 
-    def add(self, company, price):
-        self.quotes.append([company, price])
+    def add(self, quote):
+        self.quotes.append(quote)
 
     def remove(self):
         res = self.quotes[0]
@@ -47,25 +52,34 @@ class Buffer:
 class Consumer:
     def __init__(self, buff, companies):
         self.buffer = buff  # initializes a buffer attribute buff
-        self.quotes = {i: [] for i in
-                       companies}  # quotes to be stored in format {'GOOG':[1, 2, 3, 4], 'AMAZ': [5, 6, 7, 8],...}
+        self.values = {i: [0,100,0,0] for i in
+                       companies}  # [counter, min, average,max]
+        self.companies = companies
+    def reset(self):
+        self.values= {i: [0,100,0,0] for i in self.companies}
 
     def run(self):
-        # In this application, the consumer should not have (and does not need to have) any knowledge of the number of
-        # items it is expected to consume. Instead of counting a hardcoded value just test against the buffer:
-        # 			while !self.buffer.isEmpty()
-        # What are potential problems of this new approach?
-        i = 1
-        while i != 1000:
-            if not self.buffer.isEmpty():
-                a = self.buffer.remove()
-                self.quotes[a[0]].append(a[1])
-                i += 1
-
-        for key in self.quotes:
-            print('The highest value for ' + key + ' is ' + str(max(self.quotes[key])))
-            print('The lowest value for ' + key + ' is ' + str(min(self.quotes[key])))
-            print('The average value for ' + key + ' is ' + str(int(statistics.mean(self.quotes[key]))) + '\n')
+        Day=1
+        while Day!=101:
+            quoteNo = 1
+            while quoteNo != 1000:
+                if not self.buffer.isEmpty():
+                    a = self.buffer.remove()
+                    self.values[a.company][0] +=1
+                    self.values[a.company][2] += a.value
+                    if a.value < self.values[a.company][1]: self.values[a.company][1]=a.value
+                    if a.value > self.values[a.company][3]: self.values[a.company][3]=a.value
+                    quoteNo += 1
+            print('Day ' + str(Day) + ":\n\n")
+            for key in self.values:
+                if self.values[key][0] !=0:
+                    print('The highest value for ' + key + ' is ' + str(self.values[key][3]))
+                    print('The lowest value for ' + key + ' is ' + str(self.values[key][1]))
+                    print('The average value for ' + key + ' is ' + str("{0:.1f}".format(self.values[key][2]/self.values[key][0])) + '\n\n\n')
+            Day+=1
+            self.reset()
+      
+    
 
 
 if __name__ == "__main__":
