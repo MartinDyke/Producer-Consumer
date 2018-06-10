@@ -1,84 +1,195 @@
-import statistics
+import time
 import random
 import timeit
-import multiprocessing
 from threading import Thread
 
 
-# What defines what a quote is?
-# - The logic of getRandomQuote() is fine but it should return a concrete object of type Quote.
-# - There is nothing stopping somebody building on top of your Producer class and changing for example, the order of the
-#   quote items eg: [random.randint(1, 100), self.companies[random.randint(0, len(self.companies) - 1)]]. With a defined
-#   quote class you are defining and enforcing what it means to be a quote to everybody else.
+"""A module to model the Producer-Consumer idiom"""
+
+
+class Quote:
+    """A class to represent a stock quote.
+
+    Attributes:
+        comp_ (list): A list of company exchange codes.
+        price_ (float): A float of one decimal place precision.
+    """
+    def __init__(self, qcomp, qprice):
+        """Quote __init__ method.
+
+        Args:
+            qcomp (list): A list of company exchange codes.
+            qprice (float): A float of one decimal place precision.
+        """
+        self.comp_ = qcomp
+        self.price_ = qprice
+
 
 class Producer:
     def __init__(self, buff, companies):
-        self.buffer = buff
-        self.companies = companies
+        self.buffer_ = buff
+        self.companies_ = companies
 
     def getRandomQuote(self):
-        return [self.companies[random.randint(0, len(self.companies) - 1)], random.randint(1, 100)]
+        """getRandomQuote().
+
+        Args:
+            None.
+
+        Returns:
+            A Quote object initialised with a randomly selected company code and price.
+        """
+        q = Quote(self.companies_[random.randint(0, len(self.companies_) - 1)], random.randint(0, 5000)/10.0)
+        return q
 
     def run(self):
-        for i in range(1000):
-            a = self.getRandomQuote()
-            self.buffer.add(a[0], a[1])
+        for i in range(1000000):
+            self.buffer_.add(self.getRandomQuote())
 
 
 class Buffer:
     def __init__(self):
-        self.quotes = []  # quotes to be stored in list in format [['GOOG',15],['AMAZ',20],...]
+        """Buffer __init__ method.
 
-    # Why do your add and remove methods guarantee that the quotes will be consumed in the same order that they were
-    # produced? The impl is fine (for now) but why does it work? What are append and remove doing underneath?
+        Attributes:
+            quotes_ (list): A list structure to hold quotes.
+        """
+        self.quotes_ = []
 
-    def add(self, company, price):
-        self.quotes.append([company, price])
+    def add(self, quote):
+        """add()
+
+        Add an item to the buffer.
+
+        Args:
+            quote: A quote object.
+
+        Returns:
+            None.
+        """
+        self.quotes_.append(quote)
 
     def remove(self):
-        res = self.quotes[0]
-        self.quotes.remove(self.quotes[0])
-        return res
+        """remove()
+
+        Remove and return an item from the buffer.
+
+        Args:
+            None.
+
+        Returns:
+            A quote object.
+        """
+        quote = self.quotes_[0]
+        self.quotes_.remove(self.quotes_[0])
+        return quote
 
     def isEmpty(self):
-        return self.quotes == []
+        """isEmpty()
+
+        Returns whether or not the buffer is empty.
+
+        Args:
+            None.
+        Returns:
+            bool: True/False.
+        """
+        return self.quotes_ == []
 
 
+# We are going to assume that 10000 quotes represents a day's trading activity, and at the end of each day the consumer
+# will publish the day's results.
 class Consumer:
-    def __init__(self, buff, companies):
-        self.buffer = buff  # initializes a buffer attribute buff
-        self.quotes = {i: [] for i in
-                       companies}  # quotes to be stored in format {'GOOG':[1, 2, 3, 4], 'AMAZ': [5, 6, 7, 8],...}
+    def __init__(self, buff_ref, comps, quotes_per_day):
+        self.buffer_ = buff_ref
+        self.day_max_ = quotes_per_day
+
+        # We will use this to calc the real-time metrics we want. This is the point of the consumer existing.
+        # It will be a dictionary of: {string : list[5]} where [0] is HI,
+        # [1] is LOW, [2] is AVG, [3] is cumulative sum for a block of max 10000 quotes, [4] is quote count (max 10000)
+        self.quote_stats_ = {comp: [0, 0, 0, 0, 0] for comp in comps}
+
+        # Macros for readability
+        self.HI = 0
+        self.LOW = 1
+        self.AVG = 2
+        self.SUM = 3
+        self.COUNT = 4
+
+        # These are to help us out for demonstration, wouldn't usually use these because Prod/Cons would be intended to
+        # be running forever
+        self.quote_count_ = 0
+        self.day_count_ = 1
+
+    # This belongs in another class - steal it off martin
+    def printDailyStats(self):
+        print("DAY: {DAY_NUM}".format(DAY_NUM=self.day_count_))
+        for key in self.quote_stats_:
+            print("{COMP} => HI: {HI}, LOW: {LOW}, AVG: {AVG}".format(COMP=key,
+                                                                      HI=self.quote_stats_[key][self.HI],
+                                                                      LOW=self.quote_stats_[key][self.LOW],
+                                                                      AVG=self.quote_stats_[key][self.AVG]))
+
+    def resetStats(self):
+        for key in self.quote_stats_:
+            self.quote_stats_.update({key: [0, 0, 0, 0, 0]})
+
+    def processQuote(self, quote):
+        # Check end-of-day
+        if self.quote_count_ == self.day_max_:
+            self.printDailyStats()
+            self.resetStats()
+            self.quote_count_ = 0
+            self.day_count_ += 1
+
+        # Calc HI
+        if self.quote_stats_[quote.comp_][self.HI] < quote.price_:
+            self.quote_stats_[quote.comp_][self.HI] = quote.price_
+
+        # Calc LOW
+        if self.quote_stats_[quote.comp_][self.LOW] == 0:
+            self.quote_stats_[quote.comp_][self.LOW] = quote.price_
+        elif self.quote_stats_[quote.comp_][self.LOW] > quote.price_:
+            self.quote_stats_[quote.comp_][self.LOW] = quote.price_
+
+        # Calc AVG
+        if self.quote_stats_[quote.comp_][self.COUNT] == 0:  # Defend against divide by 0
+            self.quote_stats_[quote.comp_][self.AVG] = quote.price_
+            self.quote_stats_[quote.comp_][self.SUM] = quote.price_
+            self.quote_stats_[quote.comp_][self.COUNT] = 1
+        else:
+            self.quote_stats_[quote.comp_][self.COUNT] += 1
+            self.quote_stats_[quote.comp_][self.SUM] += quote.price_
+            self.quote_stats_[quote.comp_][self.AVG] = round(self.quote_stats_[quote.comp_][self.SUM] /
+                                                             self.quote_stats_[quote.comp_][self.COUNT])
+
+        # Increment quote_count
+        self.quote_count_ += 1
 
     def run(self):
-        # In this application, the consumer should not have (and does not need to have) any knowledge of the number of
-        # items it is expected to consume. Instead of counting a hardcoded value just test against the buffer:
-        # 			while !self.buffer.isEmpty()
-        # What are potential problems of this new approach?
-        i = 1
-        while i != 1000:
-            if not self.buffer.isEmpty():
-                a = self.buffer.remove()
-                self.quotes[a[0]].append(a[1])
-                i += 1
-
-        for key in self.quotes:
-            print('The highest value for ' + key + ' is ' + str(max(self.quotes[key])))
-            print('The lowest value for ' + key + ' is ' + str(min(self.quotes[key])))
-            print('The average value for ' + key + ' is ' + str(int(statistics.mean(self.quotes[key]))) + '\n')
+        while not self.buffer_.isEmpty():
+            q = self.buffer_.remove()
+            self.processQuote(q)
+            del q  # Help the garbage collector recover the memory used by the quote
 
 
-if __name__ == "__main__":
-    T1 = timeit.default_timer()
+def doTheThing():
     b = Buffer()
     comp = ['AAPL', 'AMZN', 'GOOG', 'FB', 'CSCO', 'CMCSA', 'AMGN', 'ADBE', 'GILD', 'COST']
     p = Producer(b, comp)
-    c = Consumer(b, comp)
+    c = Consumer(b, comp, 10000)
     t1 = Thread(target=p.run)
     t2 = Thread(target=c.run)
+
+    T1 = timeit.default_timer()
     t1.start()
+    time.sleep(0.01)
     t2.start()
     t1.join()
     t2.join()
     T2 = timeit.default_timer()
-    print("Total elapsed time is " + str(T2 - T1))
+    print("Total elapsed time: {TIME}".format(TIME=T2 - T1))
+
+
+if __name__ == "__main__":
+    doTheThing()
