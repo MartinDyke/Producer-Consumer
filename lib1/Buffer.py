@@ -1,14 +1,18 @@
 class Buffer:
     def __init__(self):
-        self.quotes = []  # quotes to be stored in list in format [['GOOG',15],['AMAZ',20],...]
+        #initialize buffer with storage for quotes
+        self.quotes = []
 
     def add(self, quote):
-        self.quotes.append(quote)
+	    #Append a new quote to the end of the buffer
+		self.quotes.append(quote)
 
     def remove(self):
+	    #Safe removal of quote from buffer operating on first in first out principle
         res = self.quotes[0]
         self.quotes.remove(self.quotes[0])
         return res
 
     def isEmpty(self):
+	    #Check if buffer is empty
         return self.quotes == []
