@@ -3,9 +3,8 @@ import time
 
 class Consumer:
 	def __init__(self, buff, companies, file):
-		self.buffer = buff  # initializes a buffer attribute buff
-		self.values = {i: [0, 100, 0, 0] for i in
-		               companies}  # [counter, min, average,max]
+		self.buffer = buff   # initializes a buffer attribute buff
+		self.values = {i: [0, 100, 0, 0] for i in companies}  # format: [counter, min, average, max]
 		self.companies = companies
 		self.printer = Printer(file)
 	
@@ -14,12 +13,12 @@ class Consumer:
 	
 	def run(self):
 		Day = 1
-		while Day != 11:  # for 100 days do:
+		while Day != 11:
 			quoteNo = 0
-			while quoteNo != 2500:  # while quoteNo is less than 1000 do:
+			while quoteNo != 2500:
 				if not self.buffer.isEmpty():
 					a = self.buffer.remove()
-					self.values[a.company][0] += 1
+					self.values[a.company][0] += 1  #
 					self.values[a.company][2] += a.value
 					if a.value < self.values[a.company][1]: self.values[a.company][1] = a.value
 					if a.value > self.values[a.company][3]: self.values[a.company][3] = a.value

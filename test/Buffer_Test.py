@@ -1,3 +1,6 @@
+#Tests to run on the Buffer script
+#TO DO: Test buffer.remove() and buffer.isEmpty()
+
 import unittest
 from lib1.Buffer import *
 
