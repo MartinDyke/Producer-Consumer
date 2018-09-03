@@ -39,7 +39,7 @@ class Producer:
         return q
 
     def run(self):
-        for i in range(1000000):
+        for i in range(100001):
             self.buffer_.add(self.getRandomQuote())
 
 
@@ -124,10 +124,14 @@ class Consumer:
     def processQuote(self, quote):
         # Check end-of-day
         if self.quote_count_ == self.day_max_:
+            for key in self.quote_stats_:
+                self.quote_stats_[key][self.AVG] = round(self.quote_stats_[key][self.SUM] / self.quote_stats_[key][self.COUNT])
+            
             self.printDailyStats()
             self.resetStats()
             self.quote_count_ = 0
             self.day_count_ += 1
+       
 
         # Calc HI
         if self.quote_stats_[quote.comp_][self.HI] < quote.price_:
@@ -139,16 +143,19 @@ class Consumer:
         elif self.quote_stats_[quote.comp_][self.LOW] > quote.price_:
             self.quote_stats_[quote.comp_][self.LOW] = quote.price_
 
+        self.quote_stats_[quote.comp_][self.COUNT] += 1
+        self.quote_stats_[quote.comp_][self.SUM] += quote.price_
+
         # Calc AVG
-        if self.quote_stats_[quote.comp_][self.COUNT] == 0:  # Defend against divide by 0
-            self.quote_stats_[quote.comp_][self.AVG] = quote.price_
-            self.quote_stats_[quote.comp_][self.SUM] = quote.price_
-            self.quote_stats_[quote.comp_][self.COUNT] = 1
-        else:
-            self.quote_stats_[quote.comp_][self.COUNT] += 1
-            self.quote_stats_[quote.comp_][self.SUM] += quote.price_
-            self.quote_stats_[quote.comp_][self.AVG] = round(self.quote_stats_[quote.comp_][self.SUM] /
-                                                             self.quote_stats_[quote.comp_][self.COUNT])
+        # if self.quote_stats_[quote.comp_][self.COUNT] == 0:  # Defend against divide by 0
+        #     self.quote_stats_[quote.comp_][self.AVG] = quote.price_
+        #     self.quote_stats_[quote.comp_][self.SUM] = quote.price_
+        #     self.quote_stats_[quote.comp_][self.COUNT] = 1
+        # else:
+        #     self.quote_stats_[quote.comp_][self.COUNT] += 1
+        #     self.quote_stats_[quote.comp_][self.SUM] += quote.price_
+        #     self.quote_stats_[quote.comp_][self.AVG] = round(self.quote_stats_[quote.comp_][self.SUM] /
+        #                                                      self.quote_stats_[quote.comp_][self.COUNT])
 
         # Increment quote_count
         self.quote_count_ += 1
@@ -170,7 +177,7 @@ def doTheThing():
 
     T1 = timeit.default_timer()
     t1.start()
-    time.sleep(0.01)
+    time.sleep(0.05)
     t2.start()
     t1.join()
     t2.join()
