@@ -2,6 +2,9 @@ class Buffer:
 	def __init__(self):
 		#initialize buffer with storage for quotes
 		self.quotes = []
+		
+	def __repr__(self):
+		return 'Buffer(%r)' % (self.quotes)
 
 	def add(self, quote):
 		#Append a new quote to the end of the buffer

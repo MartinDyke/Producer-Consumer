@@ -3,6 +3,7 @@
 
 import unittest
 from lib1.Buffer import *
+from lib1.Quote import *
 
 
 class testBuffer(unittest.TestCase):
